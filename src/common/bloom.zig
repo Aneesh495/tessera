@@ -12,13 +12,15 @@ pub const BloomFilter = struct {
 
         // Round up to multiple of 8 for whole bytes
         const total_bytes = (total_bits + 7) / 8;
-        const bits = try allocator.alloc(u8, total_bytes);
+        // Allocate total_bytes + 1 to store num_probes as trailer byte
+        const bits = try allocator.alloc(u8, total_bytes + 1);
         @memset(bits, 0);
 
-        // Optimal number of hash probes k = ln(2) * (m/n) ~= 0.693 * bits_per_key
         var k = @as(u32, @intFromFloat(@as(f64, @floatFromInt(bits_per_key)) * 0.693));
         if (k < 1) k = 1;
         if (k > 30) k = 30;
+
+        bits[total_bytes] = @as(u8, @intCast(k));
 
         return .{
             .bits = bits,
@@ -27,11 +29,19 @@ pub const BloomFilter = struct {
         };
     }
 
-    /// Wrap existing byte slice as read-only BloomFilter (no allocator needed).
-    pub fn fromBytes(bytes: []const u8, num_probes: u8) BloomFilter {
+    /// Wrap existing byte slice as read-only BloomFilter with self-describing probe count.
+    pub fn fromBytes(bytes: []const u8) BloomFilter {
+        if (bytes.len <= 1) {
+            return .{
+                .bits = &.{},
+                .num_probes = 0,
+                .allocator = null,
+            };
+        }
+        const k = bytes[bytes.len - 1];
         return .{
             .bits = @constCast(bytes),
-            .num_probes = num_probes,
+            .num_probes = k,
             .allocator = null,
         };
     }
@@ -49,8 +59,8 @@ pub const BloomFilter = struct {
 
     /// Insert a key into the filter.
     pub fn insert(self: *BloomFilter, key: []const u8) void {
-        if (self.bits.len == 0) return;
-        const total_bits = self.bits.len * 8;
+        if (self.bits.len <= 1) return;
+        const total_bits = (self.bits.len - 1) * 8;
         const h = hashKey(key);
         const h1 = @as(u32, @truncate(h));
         const h2 = @as(u32, @truncate(h >> 32)) | 1;
@@ -66,8 +76,8 @@ pub const BloomFilter = struct {
 
     /// Query whether a key may be present. False positives possible, false negatives impossible.
     pub fn mayContain(self: BloomFilter, key: []const u8) bool {
-        if (self.bits.len == 0) return true;
-        const total_bits = self.bits.len * 8;
+        if (self.bits.len <= 1 or self.num_probes == 0) return true;
+        const total_bits = (self.bits.len - 1) * 8;
         const h = hashKey(key);
         const h1 = @as(u32, @truncate(h));
         const h2 = @as(u32, @truncate(h >> 32)) | 1;
@@ -117,7 +127,7 @@ test "bloom filter serialization roundtrip" {
     original.insert("metric:cpu_core_0");
 
     const serialized = original.toBytes();
-    const loaded = BloomFilter.fromBytes(serialized, original.num_probes);
+    const loaded = BloomFilter.fromBytes(serialized);
 
     try std.testing.expect(loaded.mayContain("metric:latency_p99"));
     try std.testing.expect(loaded.mayContain("metric:cpu_core_0"));
