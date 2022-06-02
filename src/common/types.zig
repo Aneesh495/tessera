@@ -219,6 +219,29 @@ pub const Error = error{
     ManifestCorrupt,
 };
 
+/// Fast user-space spinlock latch for low-contention database critical sections.
+pub const SpinLock = struct {
+    state: std.atomic.Value(bool) = std.atomic.Value(bool).init(false),
+
+    pub fn init() SpinLock {
+        return .{};
+    }
+
+    pub fn lock(self: *SpinLock) void {
+        while (self.state.swap(true, .acquire)) {
+            std.atomic.spinLoopHint();
+        }
+    }
+
+    pub fn tryLock(self: *SpinLock) bool {
+        return !self.state.swap(true, .acquire);
+    }
+
+    pub fn unlock(self: *SpinLock) void {
+        self.state.store(false, .release);
+    }
+};
+
 /// Key-Value pair slice with ownership semantics.
 pub const KeyValue = struct {
     key: []const u8,
