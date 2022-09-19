@@ -118,6 +118,13 @@ pub const VectorId = enum(u64) {
     }
 };
 
+/// Get current monotonic time in microseconds.
+pub fn getMonotonicMicros() u64 {
+    var ts: std.c.timespec = undefined;
+    _ = std.c.clock_gettime(std.c.CLOCK.MONOTONIC, &ts);
+    return @as(u64, @intCast(ts.sec)) * 1_000_000 + @as(u64, @intCast(@divTrunc(ts.nsec, 1000)));
+}
+
 /// Microsecond or nanosecond epoch timestamp.
 pub const Timestamp = enum(u64) {
     zero = 0,
@@ -125,7 +132,7 @@ pub const Timestamp = enum(u64) {
     _,
 
     pub fn now() Timestamp {
-        return @enumFromInt(@as(u64, @intCast(std.time.microTimestamp())));
+        return @enumFromInt(getMonotonicMicros());
     }
 
     pub fn init(micros: u64) Timestamp {
