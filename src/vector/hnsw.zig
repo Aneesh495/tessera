@@ -105,6 +105,10 @@ pub const HnswIndex = struct {
         alloc.destroy(self);
     }
 
+    pub fn count(self: *HnswIndex) usize {
+        return self.nodes.count();
+    }
+
     fn dist(self: *const HnswIndex, a: []const f32, b: []const f32) f32 {
         return distance.calculateDistance(self.metric, a, b);
     }

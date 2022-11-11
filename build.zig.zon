@@ -1,7 +1,7 @@
 .{
     .name = .tessera,
     .version = "0.1.0",
-    .fingerprint = 0xc6a87b1c3e049d5a,
+    .fingerprint = 0x732a63b32f9c172a,
     .minimum_zig_version = "0.16.0",
     .dependencies = .{},
     .paths = .{
