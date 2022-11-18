@@ -73,7 +73,7 @@ pub const Server = struct {
                         err_str,
                     );
                 };
-                defer @constCast(&stmt).deinit();
+                defer @constCast(&stmt).deinit(self.allocator);
 
                 const plan = planner_mod.Planner.plan(stmt);
                 var q_res = self.executor.execute(plan) catch |err| {
