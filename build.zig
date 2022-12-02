@@ -34,6 +34,42 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run the Tessera CLI");
     run_step.dependOn(&run_cmd.step);
 
+    // Tessera Benchmark executable
+    const bench_exe = b.addExecutable(.{
+        .name = "tessera-bench",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("bench/bench.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "tessera", .module = lib_mod },
+            },
+        }),
+    });
+    b.installArtifact(bench_exe);
+
+    const run_bench_cmd = b.addRunArtifact(bench_exe);
+    const bench_step = b.step("bench", "Run the performance benchmark suite");
+    bench_step.dependOn(&run_bench_cmd.step);
+
+    // Tessera Storage Inspector executable
+    const inspect_exe = b.addExecutable(.{
+        .name = "tessera-inspect",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/inspect.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "tessera", .module = lib_mod },
+            },
+        }),
+    });
+    b.installArtifact(inspect_exe);
+
+    const run_inspect_cmd = b.addRunArtifact(inspect_exe);
+    const inspect_step = b.step("inspect", "Run the storage inspector tool");
+    inspect_step.dependOn(&run_inspect_cmd.step);
+
     // Tests for library module
     const lib_tests = b.addTest(.{
         .root_module = lib_mod,
